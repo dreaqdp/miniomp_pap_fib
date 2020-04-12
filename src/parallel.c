@@ -38,8 +38,6 @@ void GOMP_parallel (void (*fn) (void *), void *data, unsigned num_threads, unsig
 
     miniomp_parallel = malloc(num_threads*sizeof(miniomp_parallel_t));
 
-    pthread_key_create(&miniomp_specifickey, NULL);
-
     for (int i = 0; i < num_threads; i++) {
         miniomp_parallel[i].fn = fn;
         miniomp_parallel[i].fn_data = data;
@@ -50,7 +48,6 @@ void GOMP_parallel (void (*fn) (void *), void *data, unsigned num_threads, unsig
     for (int i = 0; i < num_threads; i++) 
         pthread_join(miniomp_threads[i], NULL);
 
-    pthread_key_delete(miniomp_specifickey);
     /*
     pthread_t thread_ids[num_threads];
 
