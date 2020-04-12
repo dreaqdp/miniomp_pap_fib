@@ -2,7 +2,7 @@
 CC = gcc
 
 OPENMP	 = -fopenmp
-CFLAGS   = -Wall -O -std=c99 -march=native -I.
+CFLAGS   = -Wall -g -O -std=c99 -march=native -I.
 CLIBS    = -L$(MINIOMP)/lib -lminiomp
 
 .c-omp: 
