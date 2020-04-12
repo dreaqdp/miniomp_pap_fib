@@ -3,7 +3,8 @@
 miniomp_taskqueue_t * miniomp_taskqueue;
 
 // Initializes the task queue
-miniomp_taskqueue_t *init_task_queue(int max_elements) {
+void init_task_queue(int max_elements) {
+    miniomp_taskqueue = malloc(sizeof(miniomp_taskqueue_t));
     miniomp_taskqueue->max_elements = max_elements;
     miniomp_taskqueue->count = 0;
     miniomp_taskqueue->head = 0;
@@ -12,7 +13,6 @@ miniomp_taskqueue_t *init_task_queue(int max_elements) {
     pthread_mutex_init(&(miniomp_taskqueue->lock_queue), NULL);
     miniomp_taskqueue->queue = malloc(max_elements*sizeof(miniomp_task_t));
 
-    return miniomp_taskqueue;
 }
 
 // Checks if the task descriptor is valid
@@ -27,6 +27,9 @@ bool is_empty(miniomp_taskqueue_t *task_queue) {
 
 // Checks if the task queue is full
 bool is_full(miniomp_taskqueue_t *task_queue) {
+    // int * id = (int *) pthread_getspecific(miniomp_specifickey);
+    // printf("id %d max %d\n", *id, task_queue->max_elements);
+    // printf("id %d count %d\n", *id, task_queue->count);
     return task_queue->count == task_queue->max_elements;
 }
 
@@ -83,18 +86,23 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
            void **depend, int priority)
 {
     printf("TBI: a task has been encountered, I am executing it immediately\n");
+    miniomp_task_t task;
+    task.fn = fn;
     if (__builtin_expect (cpyfn != NULL, 0))
         {
 	  char * buf =  malloc(sizeof(char) * (arg_size + arg_align - 1));
           char *arg = (char *) (((uintptr_t) buf + arg_align - 1)
                                 & ~(uintptr_t) (arg_align - 1));
           cpyfn (arg, data);
-          fn (arg);
+          
+          task.data = arg;
         }
     else
 	{
           char * buf =  malloc(sizeof(char) * (arg_size + arg_align - 1));
           memcpy (buf, data, arg_size);
-          fn (buf);
+          task.data = buf;
 	}
+
+    while (!enqueue(miniomp_taskqueue, &task)); // try to enqueue
 }
