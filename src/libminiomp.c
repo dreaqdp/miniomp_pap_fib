@@ -8,6 +8,8 @@ void fini_miniomp(void) __attribute__((destructor));
 // Function to parse OMP_NUM_THREADS environment variable
 void parse_env(void);
 
+extern miniomp_taskqueue_t * miniomp_taskqueue;
+miniomp_taskqueue_t * init_task_queue (int max_elements);
 
 void init_miniomp(void) {
     printf ("mini-omp is being initialized\n");
@@ -20,7 +22,7 @@ void init_miniomp(void) {
     // Initialize OpenMP default lock and default barrier
     // Initialize OpenMP workdescriptors for for and single 
     // Initialize OpenMP task queue for task and taskloop
-    init_task_queue(MAXELEMENTS_TQ);
+    miniomp_taskqueue = init_task_queue(MAXELEMENTS_TQ);
 
 }
 

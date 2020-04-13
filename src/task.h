@@ -12,6 +12,7 @@ typedef struct {
     int tail;
     int first;
     pthread_mutex_t lock_queue;
+    pthread_mutex_t lock_consult; // another mutex to protect consults such as empty and full
     miniomp_task_t **queue;
     // complete with additional field if needed
 } miniomp_taskqueue_t;

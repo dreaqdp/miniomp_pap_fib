@@ -25,9 +25,23 @@ void *worker(void *args) {
         miniomp_parallel[*tid].fn(miniomp_parallel[*tid].fn_data);
     else
         printf("Worker id %lu created\n", *tid);
+
+    while (!is_empty(miniomp_taskqueue)) {
+        pthread_mutex_lock(&miniomp_taskqueue->lock_consult);
+        if (!is_empty(miniomp_taskqueue)) {
+            miniomp_task_t *task = first(miniomp_taskqueue);
+            bool execute_task = dequeue(miniomp_taskqueue);
+            pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
+
+            if (execute_task) 
+                task->fn(task->data);
+
+        }
+        else pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
+    }
+
     //   3) exit the function
     pthread_exit(NULL);
-    return(NULL);
 }
 
 void GOMP_parallel (void (*fn) (void *), void *data, unsigned num_threads, unsigned int flags) {

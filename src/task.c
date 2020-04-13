@@ -3,16 +3,19 @@
 miniomp_taskqueue_t * miniomp_taskqueue;
 
 // Initializes the task queue
-void init_task_queue(int max_elements) {
-    miniomp_taskqueue = malloc(sizeof(miniomp_taskqueue_t));
-    miniomp_taskqueue->max_elements = max_elements;
-    miniomp_taskqueue->count = 0;
-    miniomp_taskqueue->head = 0;
-    miniomp_taskqueue->tail = 0;
-    miniomp_taskqueue->first = 0;
-    pthread_mutex_init(&(miniomp_taskqueue->lock_queue), NULL);
-    miniomp_taskqueue->queue = malloc(max_elements*sizeof(miniomp_task_t));
+miniomp_taskqueue_t * init_task_queue (int max_elements) {
+    miniomp_taskqueue_t * taskqueue = malloc(sizeof(miniomp_taskqueue_t));
+    taskqueue->max_elements = max_elements;
+    taskqueue->count = 0;
+    taskqueue->head = 0;
+    taskqueue->tail = 0;
+    taskqueue->first = 0;
+    int ret_val = pthread_mutex_init(&(taskqueue->lock_queue), NULL);
+    printf("Init mutex queue %d\n", ret_val);
+    pthread_mutex_init(&(taskqueue->lock_consult), NULL);
+    taskqueue->queue = malloc(max_elements*sizeof(miniomp_task_t));
 
+    return taskqueue;
 }
 
 // Checks if the task descriptor is valid
@@ -35,24 +38,36 @@ bool is_full(miniomp_taskqueue_t *task_queue) {
 
 // Enqueues the task descriptor at the tail of the task queue
 bool enqueue(miniomp_taskqueue_t *task_queue, miniomp_task_t *task_descriptor) {
-    if (is_full(task_queue)) return false;
-    if (is_valid(task_descriptor)) return false;
+    //printf("pre_lock_enqueu\n");
+    pthread_mutex_lock(&(task_queue->lock_queue));
+    //printf("post_lock_enqueu\n");
 
-    task_queue->queue[task_queue->tail] = task_descriptor;
-    task_queue->tail = (task_queue->tail + 1)%task_queue->max_elements;
-    ++task_queue->count;
+    bool ret = true;
+    if (is_full(task_queue)) ret = false;
+    else if (!is_valid(task_descriptor)) ret = false;
+    else {
+        task_queue->queue[task_queue->tail] = task_descriptor;
+        task_queue->tail = (task_queue->tail + 1)%task_queue->max_elements;
+        ++task_queue->count;
+    }
 
-    return true;
+    pthread_mutex_unlock(&task_queue->lock_queue);
+    return ret;
 }
 
 // Dequeue the task descriptor at the head of the task queue
 bool dequeue(miniomp_taskqueue_t *task_queue) { 
-    if (is_empty(task_queue)) return false;
+    pthread_mutex_lock(&task_queue->lock_queue);
 
-    task_queue->head = (task_queue->head + 1)%task_queue->max_elements;
-    --task_queue->count;
+    bool ret = true;
+    if (is_empty(task_queue)) ret = false;
+    else {
+        task_queue->head = (task_queue->head + 1)%task_queue->max_elements;
+        --task_queue->count;
+    }
 
-    return true;
+    pthread_mutex_unlock(&task_queue->lock_queue);
+    return ret;
 }
 
 // Returns the task descriptor at the head of the task queue
@@ -85,7 +100,7 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
            long arg_size, long arg_align, bool if_clause, unsigned flags,
            void **depend, int priority)
 {
-    printf("TBI: a task has been encountered, I am executing it immediately\n");
+    printf("TBI: a task has been encountered, I am enqueuing it immediately\n");
     miniomp_task_t task;
     task.fn = fn;
     if (__builtin_expect (cpyfn != NULL, 0))
