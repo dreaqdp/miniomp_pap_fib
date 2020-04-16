@@ -2,20 +2,24 @@
 
 miniomp_taskqueue_t * miniomp_taskqueue;
 
+extern int in_taskgroup;
+extern int taskgroup_cnt_tasks;
+
 // Initializes the task queue
 miniomp_taskqueue_t * init_task_queue (int max_elements) {
-    miniomp_taskqueue_t * taskqueue = malloc(sizeof(miniomp_taskqueue_t));
-    taskqueue->max_elements = max_elements;
-    taskqueue->count = 0;
-    taskqueue->head = 0;
-    taskqueue->tail = 0;
-    taskqueue->first = 0;
-    int ret_val = pthread_mutex_init(&(taskqueue->lock_queue), NULL);
+    miniomp_taskqueue_t * task_queue = malloc(sizeof(miniomp_taskqueue_t));
+    task_queue->max_elements = max_elements;
+    task_queue->count = 0;
+    task_queue->count_executing = 0;
+    task_queue->head = 0;
+    task_queue->tail = 0;
+    task_queue->first = 0;
+    int ret_val = pthread_mutex_init(&(task_queue->lock_queue), NULL);
     printf("Init mutex queue %d\n", ret_val);
-    pthread_mutex_init(&(taskqueue->lock_consult), NULL);
-    taskqueue->queue = malloc(max_elements*sizeof(miniomp_task_t));
+    pthread_mutex_init(&(task_queue->lock_consult), NULL);
+    task_queue->queue = malloc(max_elements*sizeof(miniomp_task_t));
 
-    return taskqueue;
+    return task_queue;
 }
 
 // Checks if the task descriptor is valid
@@ -34,6 +38,11 @@ bool is_full(miniomp_taskqueue_t *task_queue) {
     // printf("id %d max %d\n", *id, task_queue->max_elements);
     // printf("id %d count %d\n", *id, task_queue->count);
     return task_queue->count == task_queue->max_elements;
+}
+
+// Checks if there are tasks which are being executed
+bool is_executing(miniomp_taskqueue_t *task_queue) {
+    return task_queue->count_executing;
 }
 
 // Enqueues the task descriptor at the tail of the task queue
@@ -75,6 +84,12 @@ miniomp_task_t *first(miniomp_taskqueue_t *task_queue) {
     return task_queue->queue[task_queue->head];
 }
 
+/*
+int get_count (miniomp_taskqueue_t * task_queue) {
+    return task_queue->count;
+}
+*/
+
 #define GOMP_TASK_FLAG_UNTIED           (1 << 0)
 #define GOMP_TASK_FLAG_FINAL            (1 << 1)
 #define GOMP_TASK_FLAG_MERGEABLE        (1 << 2)
@@ -100,9 +115,10 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
            long arg_size, long arg_align, bool if_clause, unsigned flags,
            void **depend, int priority)
 {
-    printf("TBI: a task has been encountered, I am enqueuing it immediately\n");
+    printf("TASK: a task has been encountered, I am enqueuing it immediately\n");
     miniomp_task_t task;
     task.fn = fn;
+    task.taskgroup = 0;
     if (__builtin_expect (cpyfn != NULL, 0))
         {
 	  char * buf =  malloc(sizeof(char) * (arg_size + arg_align - 1));
@@ -119,5 +135,11 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
           task.data = buf;
 	}
 
+    if (in_taskgroup) {
+        task.taskgroup = 1;
+        __sync_fetch_and_add(&taskgroup_cnt_tasks, 1);
+    }
+    //pthread_mutex_lock(&miniomp_taskqueue->lock_consult);
     while (!enqueue(miniomp_taskqueue, &task)); // try to enqueue
+    //pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
 }

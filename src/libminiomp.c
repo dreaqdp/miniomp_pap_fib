@@ -11,6 +11,8 @@ void parse_env(void);
 extern miniomp_taskqueue_t * miniomp_taskqueue;
 miniomp_taskqueue_t * init_task_queue (int max_elements);
 
+extern int in_taskgroup;
+
 void init_miniomp(void) {
     printf ("mini-omp is being initialized\n");
     // Parse OMP_NUM_THREADS environment variable to initialize nthreads_var internal control variable
@@ -23,6 +25,7 @@ void init_miniomp(void) {
     // Initialize OpenMP workdescriptors for for and single 
     // Initialize OpenMP task queue for task and taskloop
     miniomp_taskqueue = init_task_queue(MAXELEMENTS_TQ);
+    in_taskgroup = 0;
 
 }
 
