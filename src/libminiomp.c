@@ -34,6 +34,11 @@ void fini_miniomp(void) {
     pthread_key_delete(miniomp_specifickey);
 
     // free other data structures allocated during library initialization
+    pthread_mutex_destroy(&miniomp_taskqueue->lock_consult);
+    pthread_mutex_destroy(&miniomp_taskqueue->lock_queue);
+    free(miniomp_taskqueue->queue);
     free(miniomp_taskqueue);
+    free(miniomp_threads);
+    free(miniomp_parallel);
     printf ("mini-omp is finalized\n");
 }
