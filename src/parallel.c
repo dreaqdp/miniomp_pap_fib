@@ -13,6 +13,7 @@ pthread_key_t miniomp_specifickey;
 
 //extern int taskgroup;
 extern int taskgroup_cnt_tasks;
+extern int taskgroup_exec_tasks;
 int in_parallel;
 
 // This is the prototype for the Pthreads starting function
@@ -23,7 +24,6 @@ void *worker(void *args) {
     pthread_setspecific(miniomp_specifickey, tid);
 
     //   2) invoke the per-tkhreads instance of function encapsulating the parallel region
-    //miniomp_parallel[*tid].fn(miniomp_parallel[*tid].fn_data);
 
     if (*tid == 0) {
         miniomp_parallel[*tid].fn(miniomp_parallel[*tid].fn_data);
@@ -44,13 +44,14 @@ void *worker(void *args) {
                 __sync_fetch_and_add(&miniomp_taskqueue->count_executing, 1);
                 task->fn(task->data);
                 __sync_fetch_and_sub(&miniomp_taskqueue->count_executing, 1);
-//                __sync_synchronize();
+                __sync_synchronize();
 
                 printf("PARALLEL: thread %lu executed task \n", *tid);
                 int tmp;
                 if (task->taskgroup == 1) {
-                    tmp =__sync_sub_and_fetch(&taskgroup_cnt_tasks, 1);
-                    printf("PARALLEL: thread %lu executing taskgroup %d, %d tasks left\n", *tid, task->taskgroup, tmp);
+                    //tmp =__sync_sub_and_fetch(&taskgroup_cnt_tasks, 1);
+                    tmp = __sync_add_and_fetch(&taskgroup_exec_tasks, 1);
+                    printf("PARALLEL: thread %lu executing taskgroup %d, %d tasks executed\n", *tid, task->taskgroup, tmp);
                 }
             //pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
              //  sleep(1); 
