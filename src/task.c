@@ -29,35 +29,30 @@ bool is_valid(miniomp_task_t *task_descriptor) {
 
 // Checks if the task queue is empty
 bool is_empty(miniomp_taskqueue_t *task_queue) {
-    return !task_queue->count;
+    return __sync_bool_compare_and_swap(&task_queue->count, 0, 0);
 }
 
 // Checks if the task queue is full
 bool is_full(miniomp_taskqueue_t *task_queue) {
-    // int * id = (int *) pthread_getspecific(miniomp_specifickey);
-    // printf("id %d max %d\n", *id, task_queue->max_elements);
-    // printf("id %d count %d\n", *id, task_queue->count);
-    return task_queue->count == task_queue->max_elements;
+    return __sync_bool_compare_and_swap(&task_queue->count, task_queue->max_elements, task_queue->max_elements);
 }
 
 // Checks if there are tasks which are being executed
 bool is_executing(miniomp_taskqueue_t *task_queue) {
-    return task_queue->count_executing;
+    return __sync_add_and_fetch(&task_queue->count_executing, 0);
 }
 
 // Enqueues the task descriptor at the tail of the task queue
 bool enqueue(miniomp_taskqueue_t *task_queue, miniomp_task_t *task_descriptor) {
-    //printf("pre_lock_enqueu\n");
     pthread_mutex_lock(&(task_queue->lock_queue));
-    //printf("post_lock_enqueu\n");
 
     bool ret = true;
     if (is_full(task_queue)) ret = false;
-    else if (!is_valid(task_descriptor)) ret = false;
+    //else if (!is_valid(task_descriptor)) ret = false;
     else {
         task_queue->queue[task_queue->tail] = task_descriptor;
         task_queue->tail = (task_queue->tail + 1)%task_queue->max_elements;
-        ++task_queue->count;
+        __sync_fetch_and_add(&task_queue->count, 1);
     }
 
     pthread_mutex_unlock(&task_queue->lock_queue);
@@ -72,7 +67,7 @@ bool dequeue(miniomp_taskqueue_t *task_queue) {
     if (is_empty(task_queue)) ret = false;
     else {
         task_queue->head = (task_queue->head + 1)%task_queue->max_elements;
-        --task_queue->count;
+        __sync_fetch_and_sub(&task_queue->count, 1);
     }
 
     pthread_mutex_unlock(&task_queue->lock_queue);
@@ -84,11 +79,6 @@ miniomp_task_t *first(miniomp_taskqueue_t *task_queue) {
     return task_queue->queue[task_queue->head];
 }
 
-/*
-int get_count (miniomp_taskqueue_t * task_queue) {
-    return task_queue->count;
-}
-*/
 
 #define GOMP_TASK_FLAG_UNTIED           (1 << 0)
 #define GOMP_TASK_FLAG_FINAL            (1 << 1)
@@ -139,7 +129,9 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
         task.taskgroup = 1;
         __sync_fetch_and_add(&taskgroup_cnt_tasks, 1);
     }
-    //pthread_mutex_lock(&miniomp_taskqueue->lock_consult);
-    while (!enqueue(miniomp_taskqueue, &task)); // try to enqueue
+    //pthread_mutex_lock(&miniomp_taskqueue->lock_consult); // crec que faria deadlock
+    if (is_valid(&task)) {
+        while (!enqueue(miniomp_taskqueue, &task)); // try to enqueue
+    }
     //pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
 }

@@ -33,29 +33,31 @@ void *worker(void *args) {
         printf("PARALLEL: Worker id %lu created\n", *tid);
 
     while (in_parallel || !is_empty(miniomp_taskqueue)) {
-        pthread_mutex_lock(&miniomp_taskqueue->lock_consult);
+        //pthread_mutex_lock(&miniomp_taskqueue->lock_consult);
         if (!is_empty(miniomp_taskqueue)) {
             miniomp_task_t *task = first(miniomp_taskqueue);
             bool execute_task = dequeue(miniomp_taskqueue);
             //printf("thread %lu executing? %d task %d", *tid, execute_task, miniomp_taskqueue->head);
-            pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
+            //pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
 
             if (execute_task) {
                 __sync_fetch_and_add(&miniomp_taskqueue->count_executing, 1);
                 task->fn(task->data);
                 __sync_fetch_and_sub(&miniomp_taskqueue->count_executing, 1);
+//                __sync_synchronize();
 
+                printf("PARALLEL: thread %lu executed task \n", *tid);
                 int tmp;
                 if (task->taskgroup == 1) {
                     tmp =__sync_sub_and_fetch(&taskgroup_cnt_tasks, 1);
                     printf("PARALLEL: thread %lu executing taskgroup %d, %d tasks left\n", *tid, task->taskgroup, tmp);
                 }
             //pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
-              // sleep(1); 
+             //  sleep(1); 
             }
-
+            //free(task);
         }
-        else pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
+        //else pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
     }
 
     //   3) exit the function
@@ -84,18 +86,5 @@ void GOMP_parallel (void (*fn) (void *), void *data, unsigned num_threads, unsig
         pthread_join(miniomp_threads[i], NULL);
         printf("PARALLEL: Thread %d joined\n", i);
     }
-
-    /*
-    pthread_t thread_ids[num_threads];
-
-    for (int i=0; i<num_threads; i++) {
-        //      pthread_create(thread_ids[i], NULL, fn, data);
-        miniomp_parallel_t ptr_arg;
-        ptr_arg.fn = fn;
-        ptr_arg.fn_data = data;
-        ptr_arg.id = i;
-        pthread_create(thread_ids[i], NULL, worker, ptr_arg);
-    }
-    */
 
 }
