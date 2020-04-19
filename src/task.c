@@ -106,9 +106,9 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
            void **depend, int priority)
 {
     printf("TASK: a task has been encountered, I am enqueuing it immediately\n");
-    miniomp_task_t task;
-    task.fn = fn;
-    task.taskgroup = 0;
+    miniomp_task_t * task = malloc(sizeof(miniomp_taskqueue_t));
+    task->fn = fn;
+    task->taskgroup = 0;
     if (__builtin_expect (cpyfn != NULL, 0))
         {
 	  char * buf =  malloc(sizeof(char) * (arg_size + arg_align - 1));
@@ -116,22 +116,22 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
                                 & ~(uintptr_t) (arg_align - 1));
           cpyfn (arg, data);
           
-          task.data = arg;
+          task->data = arg;
         }
     else
 	{
           char * buf =  malloc(sizeof(char) * (arg_size + arg_align - 1));
           memcpy (buf, data, arg_size);
-          task.data = buf;
+          task->data = buf;
 	}
 
     if (in_taskgroup) {
-        task.taskgroup = 1;
+        task->taskgroup = 1;
         __sync_fetch_and_add(&taskgroup_cnt_tasks, 1);
     }
     //pthread_mutex_lock(&miniomp_taskqueue->lock_consult); // crec que faria deadlock
-    if (is_valid(&task)) {
-        while (!enqueue(miniomp_taskqueue, &task)); // try to enqueue
+    if (is_valid(task)) {
+        while (!enqueue(miniomp_taskqueue, task)); // try to enqueue
     }
     //pthread_mutex_unlock(&miniomp_taskqueue->lock_consult);
 }
