@@ -14,9 +14,9 @@ miniomp_taskqueue_t * init_task_queue (int max_elements) {
     task_queue->head = 0;
     task_queue->tail = 0;
     task_queue->first = 0;
-    int ret_val = pthread_mutex_init(&(task_queue->lock_queue), NULL);
-    printf("Init mutex queue %d\n", ret_val);
-    pthread_mutex_init(&(task_queue->lock_consult), NULL);
+    pthread_mutex_init(&(task_queue->lock_queue), NULL);
+    //printf("Init mutex queue %d\n", ret_val);
+    //pthread_mutex_init(&(task_queue->lock_consult), NULL);
     task_queue->queue = malloc(max_elements*sizeof(miniomp_task_t));
 
     return task_queue;

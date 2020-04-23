@@ -12,7 +12,8 @@ void parse_env(void) {
       int procs = (int)sysconf( _SC_NPROCESSORS_ONLN ); // returns the number of cores in system
       if (procs < 0) 
           miniomp_icv.nthreads_var = 1; 
-      else miniomp_icv.nthreads_var = procs;
+      else //miniomp_icv.nthreads_var = 24; i
+          miniomp_icv.nthreads_var = procs;
     } else {
       miniomp_icv.nthreads_var = atoi(env);
     }

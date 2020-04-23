@@ -17,13 +17,18 @@ void foo() {
         result += argum;
         }
 
+/*    #pragma omp taskwait
+    printf("POST FIRST TASKWAIT, up to now result=%ld and argum = %d\n", result, argum);
+    */
     argum++;
     #pragma omp task  shared(result) firstprivate(argum)
     for (long i = 0; i < 10; i++) {
 	#pragma omp atomic
         result += argum;
         }
+    printf("second loop done\n");
     #pragma omp taskwait
+    printf("POST TASKWAIT, up to now result=%ld and argum = %d\n", result, argum);
 
     argum = result;
     for (long i = 0; i < 10; i++) {
@@ -31,6 +36,7 @@ void foo() {
 	#pragma omp atomic
         result += argum;
         }
+    printf("third loop done\n");
     }
 
     #pragma omp task firstprivate(result) firstprivate(argum)
